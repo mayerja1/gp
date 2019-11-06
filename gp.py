@@ -256,9 +256,10 @@ class GeneticProgram():
 
     """
 
-    def __init__(self):
+    def __init__(self, dataset):
         self.population = np.empty((Parameters.gp_rules['pop_size'],), dtype=GPTree)
         self.fitnesses = np.zeros((Parameters.gp_rules['pop_size']))
+        self.dataset = dataset
 
     def init_population(self):
         """Create random population
@@ -278,15 +279,13 @@ class GeneticProgram():
             t1.random_tree(grow=True, max_depth=randint(Parameters.gp_rules['min_depth'], Parameters.gp_rules['max_depth']))
             self.population[idx] = t1
 
-    def fitness(self, individual, dataset, test_cases=None):
+    def fitness(self, individual, test_cases=None):
         """fitness function of the program
 
         Parameters
         ----------
         individual : GPTree
             individual we want to evaluate
-        dataset : (m, d) np.array
-            set of m test, values at 0..d-2 are inputs, value at d-1 is the expected output
         test_cases : array of ints
             indexes of test_cases to use of evaluation, set to None to use all tests
 
@@ -297,8 +296,8 @@ class GeneticProgram():
 
         """
         if test_cases is None:
-            test_cases = range(len(dataset))
-        return mean([abs(individual.compute_tree(ds[:-1]) - ds[-1]) for ds in dataset[test_cases]]) + 0.01*individual.size()
+            test_cases = range(len(self.dataset))
+        return mean([abs(individual.compute_tree(ds[:-1]) - ds[-1]) for ds in self.dataset[test_cases]]) + 0.01*individual.size()
 
     def selection(self):
         """Selects an andividual using tournament selection.
@@ -313,7 +312,7 @@ class GeneticProgram():
         tournament_fitnesses = [self.fitnesses[contender] for contender in tournament]
         return deepcopy(self.population[tournament[np.argmin(tournament_fitnesses)]])
 
-    def evaluate_population(self, dataset):
+    def evaluate_population(self):
         """computes and saves fitness of the population
 
         Parameters
@@ -323,7 +322,7 @@ class GeneticProgram():
 
         """
         for i in range(len(self.fitnesses)):
-            self.fitnesses[i] = self.fitness(self.population[i], dataset)
+            self.fitnesses[i] = self.fitness(self.population[i])
 
     def evolve_population(self):
         """Evolves the current population using mutation and crossover
@@ -336,13 +335,11 @@ class GeneticProgram():
             parent1.mutation()
             self.population[i] = parent1
 
-    def run_evolution(self, dataset, verbose=False):
+    def run_evolution(self, verbose=False):
         """perform an evolution run
 
         Parameters
         ----------
-        dataset : (m, d) np.array
-            dataset to use
         verbose : bool
             set to True if you want the method to print progress
 
@@ -370,7 +367,7 @@ class GeneticProgram():
             cur_gen += 1
             if verbose and cur_gen % 100 == 0: print(f'current generation {cur_gen}')
             self.evolve_population()
-            self.evaluate_population(dataset)
+            self.evaluate_population()
 
             best_of_gen = np.argmin(self.fitnesses)
             avg_fitnesses.append(mean(self.fitnesses))
@@ -430,20 +427,24 @@ class FitnessPredictorEvolution():
         self.trainers_pop_size = trainers_pop_size
         self.predictors_pop = np.array([FitnerrPredictor(dataset_size, predictors_size, prob_mutation, prob_xo) \
                                         for _ in range(predictors_pop_size)])
-        trainers_pop = np.empty(shape=trainers_pop_size, dtype=GPTree)
 
+        trainers_pop = np.empty(shape=trainers_pop_size, dtype=GPTree)
         for i in range(trainers_pop_size):
             t = GPTree()
             t.random_tree()
             trainers_pop[i] = t
 
-    def pred_fitness(self):
+        pred_fitnesses = np.zeros_like(self.predictors_pop)
+
+    def pred_fitness(self, predictor):
         raise NotImplementedError()
 
     def evaluate_predictors(self):
-        raise NotImplementedError()
+        for i in range(len(self.pred_fitnesses)):
+            self.pred_fitnesses[i] = self.pred_fitness(self.predictors_pop[i])
 
-
+    def best_predictor(self):
+        return self.predictors_pop[np.argmin(self.fitnesses)]
 
 
 if __name__== "__main__":
