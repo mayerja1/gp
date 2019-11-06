@@ -422,6 +422,30 @@ class FitnessPredictor():
     def __str__(self):
         return str(self.test_cases)
 
+class FitnessPredictorEvolution():
+
+    def __init__(self, predictors_pop_size, predictors_size, dataset_size, trainers_pop_size, prob_mutation, prob_xo):
+        self.predictors_pop_size = predictors_pop_size
+        self.predictors_size = predictors_size
+        self.trainers_pop_size = trainers_pop_size
+        self.predictors_pop = np.array([FitnerrPredictor(dataset_size, predictors_size, prob_mutation, prob_xo) \
+                                        for _ in range(predictors_pop_size)])
+        trainers_pop = np.empty(shape=trainers_pop_size, dtype=GPTree)
+
+        for i in range(trainers_pop_size):
+            t = GPTree()
+            t.random_tree()
+            trainers_pop[i] = t
+
+    def pred_fitness(self):
+        raise NotImplementedError()
+
+    def evaluate_predictors(self):
+        raise NotImplementedError()
+
+
+
+
 if __name__== "__main__":
     fp = FitnessPredictor(10, 5, 0.1, 1.0)
     fp2 = FitnessPredictor(10, 5, 0.1, 1.0)
