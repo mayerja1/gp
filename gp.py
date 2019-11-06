@@ -421,12 +421,14 @@ class FitnessPredictor():
 
 class FitnessPredictorEvolution():
 
-    def __init__(self, predictors_pop_size, predictors_size, dataset_size, trainers_pop_size, prob_mutation, prob_xo):
+    def __init__(self, predictors_pop_size, predictors_size, dataset_size, trainers_pop_size, prob_mutation, prob_xo, owner):
         self.predictors_pop_size = predictors_pop_size
         self.predictors_size = predictors_size
         self.trainers_pop_size = trainers_pop_size
         self.predictors_pop = np.array([FitnerrPredictor(dataset_size, predictors_size, prob_mutation, prob_xo) \
                                         for _ in range(predictors_pop_size)])
+        # owner - instance of GeneticProgram class that uses this object, can be used to get fitnesses of solutions
+        self.owner = owner
 
         trainers_pop = np.empty(shape=trainers_pop_size, dtype=GPTree)
         for i in range(trainers_pop_size):
