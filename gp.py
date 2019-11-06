@@ -242,7 +242,7 @@ class GPTree:
         """
         if random() < Parameters.gp_rules['xo_rate']:
             second = other.scan_tree([randint(1, other.size())], None) # 2nd random subtree
-            self.scan_tree([randint(1, self.size())], second) # 2nd subtree "glued" inside 1st tree
+            self.scan_tree([randint(1, self.size())], second)
 
 class GeneticProgram():
     """Class representing a genetic program.
@@ -278,8 +278,7 @@ class GeneticProgram():
             t1.random_tree(grow=True, max_depth=randint(Parameters.gp_rules['min_depth'], Parameters.gp_rules['max_depth']))
             self.population[idx] = t1
 
-    # TODO: in the future, here we will add another parameter - indexes in dataset, which to use - our fitness predictor
-    def fitness(self, individual, dataset):
+    def fitness(self, individual, dataset, test_cases=None):
         """fitness function of the program
 
         Parameters
@@ -288,6 +287,8 @@ class GeneticProgram():
             individual we want to evaluate
         dataset : (m, d) np.array
             set of m test, values at 0..d-2 are inputs, value at d-1 is the expected output
+        test_cases : array of ints
+            indexes of test_cases to use of evaluation, set to None to use all tests
 
         Returns
         -------
@@ -295,7 +296,9 @@ class GeneticProgram():
             mean absolute error on all tests
 
         """
-        return mean([abs(individual.compute_tree(ds[:-1]) - ds[-1]) for ds in dataset]) + 0.01*individual.size()
+        if test_cases is None:
+            test_cases = range(len(dataset))
+        return mean([abs(individual.compute_tree(ds[:-1]) - ds[-1]) for ds in dataset[test_cases]]) + 0.01*individual.size()
 
     def selection(self):
         """Selects an andividual using tournament selection.
@@ -308,7 +311,7 @@ class GeneticProgram():
         """
         tournament = [randint(0, len(self.population) - 1) for _ in range(Parameters.gp_rules['tournament_size'])] # select tournament contenders
         tournament_fitnesses = [self.fitnesses[contender] for contender in tournament]
-        return deepcopy(self.population[tournament[np.argmin(tournament_fitnesses))]])
+        return deepcopy(self.population[tournament[np.argmin(tournament_fitnesses)]])
 
     def evaluate_population(self, dataset):
         """computes and saves fitness of the population
@@ -367,7 +370,6 @@ class GeneticProgram():
             cur_gen += 1
             if verbose and cur_gen % 100 == 0: print(f'current generation {cur_gen}')
             self.evolve_population()
-            #self.init_population()
             self.evaluate_population(dataset)
 
             best_of_gen = np.argmin(self.fitnesses)
@@ -391,5 +393,39 @@ class GeneticProgram():
                 'best_f' : best_of_run_f,
                 'avg_sizes' : avg_sizes}
 
+class FitnessPredictor():
+
+    def __init__(self, number_of_tests, size, prob_mutation, prob_xo, test_cases=None):
+        self.number_of_tests = number_of_tests
+        self.prob_mutation = prob_mutation
+        self.test_cases = test_cases
+        self.size = size
+        self.prob_xo = prob_xo
+        if test_cases is None:
+            self.random_predictor()
+
+    def random_predictor(self):
+        self.test_cases = np.random.randint(self.number_of_tests, size=self.size)
+
+    def mutate(self):
+        for i in range(self.number_of_tests):
+            if random() < self.prob_mutation:
+                self.test_cases[i] = randint(0, self.number_of_tests)
+
+    def crossover(self, other):
+        if self.size != other.size:
+            raise ValueError('predictors must have same size')
+        if random() < self.prob_xo:
+            xo_point = randint(0, self.size)
+            self.test_cases[:xo_point] = other.test_cases[:xo_point]
+
+    def __str__(self):
+        return str(self.test_cases)
+
 if __name__== "__main__":
-    pass
+    fp = FitnessPredictor(10, 5, 0.1, 1.0)
+    fp2 = FitnessPredictor(10, 5, 0.1, 1.0)
+    print(fp)
+    print(fp2)
+    fp.crossover(fp2)
+    print(fp)
