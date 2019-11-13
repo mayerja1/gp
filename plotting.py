@@ -3,8 +3,8 @@ import numpy as np
 
 def plot_solution_and_target(solution, target_func_name, dataset):
     fig, ax = plt.subplots()
-    interval = np.linspace(dataset[0, 0], dataset[-1, 0], 1000)
-    solution_vals = list(map(lambda x: solution.compute_tree(x), interval))
+    interval = np.arange(dataset[0, 0], dataset[-1, 0], 0.1)
+    solution_vals = list(map(lambda x: solution.compute_tree([x]), interval))
     ax.scatter(dataset[:, 0], dataset[:, 1])
     ax.plot(interval, solution_vals)
     ax.legend(['best solution', 'target function'])
