@@ -386,7 +386,7 @@ class GeneticProgram():
 
             best_of_gen = np.argmin(self.fitnesses)
             avg_fitnesses.append(mean(self.fitnesses))
-            best_of_gen_fitnesses.append(self.fitnesses[best_of_gen])
+            best_of_gen_fitnesses.append(self.fitness(best_of_gen))
             avg_sizes.append(mean([t.size() for t in self.population]))
             test_cases_evaluations.append(self.test_cases_evaluated)
 
@@ -395,18 +395,19 @@ class GeneticProgram():
                 best_of_run_gen = cur_gen
                 best_of_run = deepcopy(self.population[best_of_gen])
 
-            best_of_run_fitnesses.append(best_of_run_f)
+            best_of_run_fitnesses.append(self.fitness(best_of_run))
 
             end_criteria_met |= cur_gen > Parameters.gp_rules['generations'] or best_of_run_f < 0.1
         return {'best' : best_of_run,
                 'generations' : cur_gen + 1,
-                'avg_fitnesses' : avg_fitnesses,
-                'best_of_gen_fitnesses' : best_of_gen_fitnesses,
-                'best_of_run_fitnesses' : best_of_run_fitnesses,
+                'avg_fitnesses' : np.array(avg_fitnesses),
+                'best_of_gen_fitnesses' : np.array(best_of_gen_fitnesses),
+                'best_of_run_fitnesses' : np.array(best_of_run_fitnesses),
                 'best_f' : best_of_run_f,
-                'avg_sizes' : avg_sizes,
+                'avg_sizes' : np.array(avg_sizes),
                 'best_of_run_exact_fitness' : self.fitness(best_of_run),
-                'test_cases_evaluations' : test_cases_evaluations}
+                'test_cases_evaluations' : np.array(test_cases_evaluations),
+                'used_test_cases' : test_cases}
 
 class FitnessPredictor():
 
