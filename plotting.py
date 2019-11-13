@@ -11,8 +11,9 @@ def plot_solution_and_target(solution, target_func_name, dataset):
     ax.set(xlabel='input', ylabel='output', title=target_func_name)
     plt.show()
 
-def simple_line_plot(xs, ys, xlabel='', ylabel='', title=''):
-    fig, ax = plt.subplots()
-    ax.plot(xs, ys)
-    ax.set(xlabel=xlabel, ylabel=ylabel, title=title)
-    plt.show()
+def simple_line_plot(xs, ys, xlabel='', ylabel='', title='', label=''):
+    plt.plot(xs, ys, label=label)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.title(title)
+    #plt.show()
