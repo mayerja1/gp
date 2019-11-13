@@ -469,7 +469,7 @@ class SLFitnessPredictorManager(FitnessPredictorManager):
         for i in range(trainers_pop_size):
             self.trainers_pop[i] = choice(owner.population)
         self.trainers_fitnesses = np.array([self.trainer_fitness(t) for t in self.trainers_pop])
-
+        self.trainers_exact_fitnesses = np.array([self.owner.fitness(t) for t in self.trainers_pop])
 
         self.pred_fitnesses = np.zeros_like(self.predictors_pop)
         self.evaluate_predictors()
@@ -477,8 +477,8 @@ class SLFitnessPredictorManager(FitnessPredictorManager):
 
     def predictor_fitness(self, predictor):
         error_sum = 0
-        for t in self.trainers_pop:
-            error_sum += abs(self.owner.fitness(t) - self.owner.fitness(t, test_cases=predictor.test_cases))
+        for i, t in enumerate(self.trainers_pop):
+            error_sum += abs(self.trainers_exact_fitnesses[i] - self.owner.fitness(t, test_cases=predictor.test_cases))
         return error_sum / self.trainers_pop_size
 
     def evaluate_predictors(self):
@@ -516,6 +516,7 @@ class SLFitnessPredictorManager(FitnessPredictorManager):
         new = np.argmax(all_fitnesses)
         self.trainers_pop[cur_worst] = deepcopy(self.owner.population[new])
         self.trainers_fitnesses[cur_worst] = all_fitnesses[new]
+        self.trainers_exact_fitnesses[cur_worst] = self.owner.fitness(self.trainers_pop[cur_worst])
 
 
 class RandomFitnessPredictorManager(FitnessPredictorManager):
