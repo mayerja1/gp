@@ -297,7 +297,10 @@ class GeneticProgram():
         """
         if test_cases is None:
             test_cases = range(len(self.dataset))
-        return mean([abs(individual.compute_tree(ds[:-1]) - ds[-1]) for ds in self.dataset[test_cases]]) + 0.01*individual.size()
+        try:
+            return mean([abs(individual.compute_tree(ds[:-1]) - ds[-1]) for ds in self.dataset[test_cases]]) + 0.01*individual.size()
+        except:
+            return np.inf
 
     def selection(self):
         """Selects an andividual using tournament selection.
@@ -446,8 +449,8 @@ class EvolvingFitnessPredictor(FitnessPredictor):
 
 
 class SLFitnessPredictorManager(FitnessPredictorManager):
-# TODO: implement and make work
-    def __init__(self, owner, dataset_size, predictors_pop_size, predictors_size, trainers_pop_size, prob_mutation, prob_xo):
+
+    def __init__(self, owner, dataset_size, predictors_pop_size=8, predictors_size=8, trainers_pop_size=10, prob_mutation=0.1, prob_xo=0.5):
         super().__init__(owner, dataset_size)
         self.predictors_pop_size = predictors_pop_size
         self.predictors_size = predictors_size
@@ -466,20 +469,29 @@ class SLFitnessPredictorManager(FitnessPredictorManager):
         self.best_predictor = None
 
     def predictor_fitness(self, predictor):
-        raise NotImplementedError()
+        error_sum = 0
+        for t in self.trainers_pop:
+            error_sum += abs(self.owner.fitness(t) - self.owner.fitness(t, test_cases=predictor.test_cases))
+        return error_sum / self.trainers_pop_size
 
     def evaluate_predictors(self):
         for i in range(len(self.pred_fitnesses)):
-            self.pred_fitnesses[i] = self.pred_fitness(self.predictors_pop[i])
+            self.pred_fitnesses[i] = self.predictor_fitness(self.predictors_pop[i])
 
     def get_best_predictor(self):
         return self.predictors_pop[np.argmin(self.fitnesses)] if self.best_predictor is None else self.best_predictor
 
+    def next_generation(self, **args):
+        if args['generation'] % 10 == 0:
+            self.add_new_trainer()
+
     def add_new_trainer(self, population):
-        raise NotImplementedError()
+        pass
 
 
 class RandomFitnessPredictorManager(FitnessPredictorManager):
+    """A dummy random fitness predictor manager used for testing
+    """
 
     def __init__(self, owner, dataset_size):
         super().__init__(owner, dataset_size)
