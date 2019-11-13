@@ -312,17 +312,19 @@ class GeneticProgram():
         tournament_fitnesses = [self.fitnesses[contender] for contender in tournament]
         return deepcopy(self.population[tournament[np.argmin(tournament_fitnesses)]])
 
-    def evaluate_population(self):
+    def evaluate_population(self, test_cases=None):
         """computes and saves fitness of the population
 
         Parameters
         ----------
         dataset : (m, d) np.array
             see function fitness for explanation
+        test_cases : array of ints
+            indexes of test_cases to use of evaluation, set to None to use all tests
 
         """
         for i in range(len(self.fitnesses)):
-            self.fitnesses[i] = self.fitness(self.population[i])
+            self.fitnesses[i] = self.fitness(self.population[i], test_cases=test_cases)
 
     def evolve_population(self):
         """Evolves the current population using mutation and crossover
@@ -335,7 +337,7 @@ class GeneticProgram():
             parent1.mutation()
             self.population[i] = parent1
 
-    def run_evolution(self, verbose=False):
+    def run_evolution(self, fp_manager=None, verbose=False):
         """perform an evolution run
 
         Parameters
@@ -362,12 +364,17 @@ class GeneticProgram():
         avg_sizes = []
 
         # start
-        cur_gen = 1
+        cur_gen = 0
         while not end_criteria_met:
             cur_gen += 1
             if verbose and cur_gen % 100 == 0: print(f'current generation {cur_gen}')
+            if fp_manager is not None:
+                test_cases = fp_manager.get_best_predictor().test_cases
+                fp_manager.next_generation()
+            else:
+                test_cases = None
             self.evolve_population()
-            self.evaluate_population()
+            self.evaluate_population(test_cases=test_cases)
 
             best_of_gen = np.argmin(self.fitnesses)
             avg_fitnesses.append(mean(self.fitnesses))
@@ -383,26 +390,47 @@ class GeneticProgram():
 
             end_criteria_met |= cur_gen > Parameters.gp_rules['generations'] or best_of_run_f < 0.1
         return {'best' : best_of_run,
-                'generations' : cur_gen,
+                'generations' : cur_gen + 1,
                 'avg_fitnesses' : avg_fitnesses,
                 'best_of_gen_fitnesses' : best_of_gen_fitnesses,
                 'best_of_run_fitnesses' : best_of_run_fitnesses,
                 'best_f' : best_of_run_f,
-                'avg_sizes' : avg_sizes}
+                'avg_sizes' : avg_sizes,
+                'best_of_run_exact_fitness' : self.fitness(best_of_run)}
 
 class FitnessPredictor():
 
-    def __init__(self, number_of_tests, size, prob_mutation, prob_xo, test_cases=None):
+    def __init__(self, number_of_tests, size, test_cases=None):
         self.number_of_tests = number_of_tests
-        self.prob_mutation = prob_mutation
         self.test_cases = test_cases
         self.size = size
-        self.prob_xo = prob_xo
         if test_cases is None:
             self.random_predictor()
 
     def random_predictor(self):
         self.test_cases = np.random.randint(self.number_of_tests, size=self.size)
+
+    def __str__(self):
+        return str(self.test_cases)
+
+class FitnessPredictorManager():
+
+    def __init__(self, owner, dataset_size):
+        self.owner = owner
+        self.dataset_size = dataset_size
+
+    def get_best_predictor(self):
+        raise NotImplementedError()
+
+    def next_generation(self, **args):
+        raise NotImplementedError()
+
+class EvolvingFitnessPredictor(FitnessPredictor):
+
+    def __init__(self, number_of_tests, size, prob_mutation, prob_xo, test_cases=None):
+        super().__init__(number_of_tests, size, test_cases=test_cases)
+        self.prob_xo = prob_xo
+        self.prob_mutation = prob_mutation
 
     def mutate(self):
         for i in range(self.number_of_tests):
@@ -416,19 +444,16 @@ class FitnessPredictor():
             xo_point = randint(0, self.size)
             self.test_cases[:xo_point] = other.test_cases[:xo_point]
 
-    def __str__(self):
-        return str(self.test_cases)
 
-class FitnessPredictorEvolution():
-
-    def __init__(self, predictors_pop_size, predictors_size, dataset_size, trainers_pop_size, prob_mutation, prob_xo, owner):
+class SLFitnessPredictorManager(FitnessPredictorManager):
+# TODO: implement and make work
+    def __init__(self, owner, dataset_size, predictors_pop_size, predictors_size, trainers_pop_size, prob_mutation, prob_xo):
+        super().__init__(owner, dataset_size)
         self.predictors_pop_size = predictors_pop_size
         self.predictors_size = predictors_size
         self.trainers_pop_size = trainers_pop_size
-        self.predictors_pop = np.array([FitnerrPredictor(dataset_size, predictors_size, prob_mutation, prob_xo) \
+        self.predictors_pop = np.array([EvolvingFitnessPredictor(dataset_size, predictors_size, prob_mutation, prob_xo) \
                                         for _ in range(predictors_pop_size)])
-        # owner - instance of GeneticProgram class that uses this object, can be used to get fitnesses of solutions
-        self.owner = owner
 
         trainers_pop = np.empty(shape=trainers_pop_size, dtype=GPTree)
         for i in range(trainers_pop_size):
@@ -437,17 +462,33 @@ class FitnessPredictorEvolution():
             trainers_pop[i] = t
 
         pred_fitnesses = np.zeros_like(self.predictors_pop)
+        self.evaluate_predictors()
+        self.best_predictor = None
 
-    def pred_fitness(self, predictor):
+    def predictor_fitness(self, predictor):
         raise NotImplementedError()
 
     def evaluate_predictors(self):
         for i in range(len(self.pred_fitnesses)):
             self.pred_fitnesses[i] = self.pred_fitness(self.predictors_pop[i])
 
-    def best_predictor(self):
-        return self.predictors_pop[np.argmin(self.fitnesses)]
+    def get_best_predictor(self):
+        return self.predictors_pop[np.argmin(self.fitnesses)] if self.best_predictor is None else self.best_predictor
 
+    def add_new_trainer(self, population):
+        raise NotImplementedError()
+
+
+class RandomFitnessPredictorManager(FitnessPredictorManager):
+
+    def __init__(self, owner, dataset_size):
+        super().__init__(owner, dataset_size)
+
+    def get_best_predictor(self):
+        return FitnessPredictor(self.dataset_size, 10)
+
+    def next_generation(self, **args):
+        pass
 
 if __name__== "__main__":
     fp = FitnessPredictor(10, 5, 0.1, 1.0)
