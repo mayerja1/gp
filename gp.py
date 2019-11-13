@@ -311,8 +311,8 @@ class GeneticProgram():
             copy of the winner of the tournament
 
         """
-        tournament = [randint(0, len(self.population) - 1) for _ in range(Parameters.gp_rules['tournament_size'])] # select tournament contenders
-        tournament_fitnesses = [self.fitnesses[contender] for contender in tournament]
+        tournament = np.random.randint(len(self.population), size=Parameters.gp_rules['tournament_size'], dtype=np.int32) # select tournament contenders
+        tournament_fitnesses = self.fitnesses[tournament]
         return deepcopy(self.population[tournament[np.argmin(tournament_fitnesses)]])
 
     def evaluate_population(self, test_cases=None):
@@ -373,7 +373,7 @@ class GeneticProgram():
             if verbose and cur_gen % 100 == 0: print(f'current generation {cur_gen}')
             if fp_manager is not None:
                 test_cases = fp_manager.get_best_predictor().test_cases
-                fp_manager.next_generation()
+                fp_manager.next_generation(generation=cur_gen)
             else:
                 test_cases = None
             self.evolve_population()
@@ -458,13 +458,13 @@ class SLFitnessPredictorManager(FitnessPredictorManager):
         self.predictors_pop = np.array([EvolvingFitnessPredictor(dataset_size, predictors_size, prob_mutation, prob_xo) \
                                         for _ in range(predictors_pop_size)])
 
-        trainers_pop = np.empty(shape=trainers_pop_size, dtype=GPTree)
+        self.trainers_pop = np.empty(shape=trainers_pop_size, dtype=GPTree)
         for i in range(trainers_pop_size):
-            t = GPTree()
-            t.random_tree()
-            trainers_pop[i] = t
+            self.trainers_pop[i] = choice(owner.population)
+        self.trainers_fitnesses = np.array([self.trainer_fitness(t) for t in self.trainers_pop])
 
-        pred_fitnesses = np.zeros_like(self.predictors_pop)
+
+        self.pred_fitnesses = np.zeros_like(self.predictors_pop)
         self.evaluate_predictors()
         self.best_predictor = None
 
@@ -484,9 +484,31 @@ class SLFitnessPredictorManager(FitnessPredictorManager):
     def next_generation(self, **args):
         if args['generation'] % 10 == 0:
             self.add_new_trainer()
+        self.evolve_predictors()
+        self.evaluate_predictors()
 
-    def add_new_trainer(self, population):
-        pass
+    def evolve_predictors(self):
+        for i in range(len(self.predictors_pop)):
+            p1 = self.selection()
+            p2 = self.selection()
+            p1.crossover(p2)
+            p1.mutate()
+            predictors_pop[i] = p1
+
+    def selection(self):
+        tournament = np.random.randint(self.predictors_pop_size, size=3, dtype=np.int32)
+        tournament_fitnesses = self.predictor_fitnesses[tournament]
+        return deepcopy(self.predictors_pop[tournament[np.argmin(tournament_fitnesses)]])
+
+    def trainer_fitness(self, t):
+        return np.std([self.owner.fitness(t, test_cases=p.test_cases) for p in self.predictors_pop])
+
+    def add_new_trainer(self):
+        all_fitnesses = [self.trainer_fitness(t) for t in self.owner.population]
+        cur_worst = np.argmin(self.trainer_fitness)
+        new = np.argmax(all_fitnesses)
+        self.trainers_pop[cur_worst] = deepcopy(self.owner.population[new])
+        self.trainers_fitnesses[cur_worst] = all_fitnesses[new]
 
 
 class RandomFitnessPredictorManager(FitnessPredictorManager):
