@@ -260,6 +260,7 @@ class GeneticProgram():
         self.population = np.empty((Parameters.gp_rules['pop_size'],), dtype=GPTree)
         self.fitnesses = np.zeros((Parameters.gp_rules['pop_size']))
         self.dataset = dataset
+        self.test_cases_evaluated = 0
 
     def init_population(self):
         """Create random population
@@ -297,6 +298,7 @@ class GeneticProgram():
         """
         if test_cases is None:
             test_cases = range(len(self.dataset))
+        self.test_cases_evaluated += len(test_cases)
         try:
             return mean([abs(individual.compute_tree(ds[:-1]) - ds[-1]) for ds in self.dataset[test_cases]]) + 0.01*individual.size()
         except:
@@ -365,6 +367,9 @@ class GeneticProgram():
         best_of_gen_fitnesses = []
         best_of_run_fitnesses = []
         avg_sizes = []
+        test_cases_evaluations = []
+
+        self.test_cases_evaluated = 0
 
         # start
         cur_gen = 0
@@ -383,6 +388,7 @@ class GeneticProgram():
             avg_fitnesses.append(mean(self.fitnesses))
             best_of_gen_fitnesses.append(self.fitnesses[best_of_gen])
             avg_sizes.append(mean([t.size() for t in self.population]))
+            test_cases_evaluations.append(self.test_cases_evaluated)
 
             if self.fitnesses[best_of_gen] < best_of_run_f:
                 best_of_run_f = self.fitnesses[best_of_gen]
@@ -399,7 +405,8 @@ class GeneticProgram():
                 'best_of_run_fitnesses' : best_of_run_fitnesses,
                 'best_f' : best_of_run_f,
                 'avg_sizes' : avg_sizes,
-                'best_of_run_exact_fitness' : self.fitness(best_of_run)}
+                'best_of_run_exact_fitness' : self.fitness(best_of_run),
+                'test_cases_evaluations' : test_cases_evaluations}
 
 class FitnessPredictor():
 
@@ -436,7 +443,7 @@ class EvolvingFitnessPredictor(FitnessPredictor):
         self.prob_mutation = prob_mutation
 
     def mutate(self):
-        for i in range(self.number_of_tests):
+        for i in range(self.size):
             if random() < self.prob_mutation:
                 self.test_cases[i] = randint(0, self.number_of_tests)
 
@@ -479,7 +486,7 @@ class SLFitnessPredictorManager(FitnessPredictorManager):
             self.pred_fitnesses[i] = self.predictor_fitness(self.predictors_pop[i])
 
     def get_best_predictor(self):
-        return self.predictors_pop[np.argmin(self.fitnesses)] if self.best_predictor is None else self.best_predictor
+        return self.predictors_pop[np.argmin(self.pred_fitnesses)] if self.best_predictor is None else self.best_predictor
 
     def next_generation(self, **args):
         if args['generation'] % 10 == 0:
@@ -493,11 +500,11 @@ class SLFitnessPredictorManager(FitnessPredictorManager):
             p2 = self.selection()
             p1.crossover(p2)
             p1.mutate()
-            predictors_pop[i] = p1
+            self.predictors_pop[i] = p1
 
     def selection(self):
         tournament = np.random.randint(self.predictors_pop_size, size=3, dtype=np.int32)
-        tournament_fitnesses = self.predictor_fitnesses[tournament]
+        tournament_fitnesses = self.pred_fitnesses[tournament]
         return deepcopy(self.predictors_pop[tournament[np.argmin(tournament_fitnesses)]])
 
     def trainer_fitness(self, t):
