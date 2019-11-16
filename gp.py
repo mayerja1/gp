@@ -148,10 +148,7 @@ class GPTree:
         if depth < Parameters.gp_rules['min_depth'] or (depth < max_depth and not grow):
             self.data = choice(Parameters.gp_rules['unary_functions'] + Parameters.gp_rules['binary_functions'])
         elif depth >= max_depth:
-            if random() > 0.5:
-                self.data = choice(Parameters.gp_rules['terminals'])
-            else:
-                self.data = 'x'
+            self.data = choice(Parameters.gp_rules['terminals'])
         else: # intermediate depth, grow
             if random () > 0.5:
                 self.data = choice(Parameters.gp_rules['terminals'])
@@ -159,12 +156,12 @@ class GPTree:
                 self.data = choice(Parameters.gp_rules['unary_functions'] + Parameters.gp_rules['binary_functions'])
         if self.data in Parameters.gp_rules['binary_functions']:
             self.left = GPTree(Parameters.gp_rules)
-            self.left.random_tree(grow, max_depth, depth = depth + 1)
+            self.left.random_tree(grow, max_depth, depth=depth + 1)
             self.right = GPTree(Parameters.gp_rules)
-            self.right.random_tree(grow, max_depth, depth = depth + 1)
+            self.right.random_tree(grow, max_depth, depth=depth + 1)
         elif self.data in Parameters.gp_rules['unary_functions']:
             self.left = GPTree(Parameters.gp_rules)
-            self.left.random_tree(grow, max_depth, depth = depth + 1)
+            self.left.random_tree(grow, max_depth, depth=depth + 1)
 
     def mutation(self):
         """Mutates the tree by selecting random subtree and replacing it with a
@@ -341,7 +338,7 @@ class GeneticProgram():
             parent2 = self.selection()
             parent1.crossover(parent2)
             parent1.mutation()
-            self.population[i] = parent1
+            self.population[i] = deepcopy(parent1)
 
     def run_evolution(self, fp_manager=None, verbose=False):
         """perform an evolution run
@@ -470,7 +467,7 @@ class SLFitnessPredictorManager(FitnessPredictorManager):
 
         self.trainers_pop = np.empty(shape=trainers_pop_size, dtype=GPTree)
         for i in range(trainers_pop_size):
-            self.trainers_pop[i] = choice(owner.population)
+            self.trainers_pop[i] = deepcopy(choice(owner.population))
         self.trainers_fitnesses = np.array([self.trainer_fitness(t) for t in self.trainers_pop])
         self.trainers_exact_fitnesses = np.array([self.owner.fitness(t) for t in self.trainers_pop])
 
@@ -489,11 +486,14 @@ class SLFitnessPredictorManager(FitnessPredictorManager):
             self.pred_fitnesses[i] = self.predictor_fitness(self.predictors_pop[i])
 
     def get_best_predictor(self):
-        return self.predictors_pop[np.argmin(self.pred_fitnesses)] if self.best_predictor is None else self.best_predictor
+        return self.predictors_pop[np.argmin(self.pred_fitnesses)]
 
     def next_generation(self, **args):
         if args['generation'] % 5 == 0:
             self.add_new_trainer()
+        if args['generation'] % 100 == 0:
+            pass
+            #print(self.trainers_exact_fitnesses)
         self.evolve_predictors()
         self.evaluate_predictors()
 
@@ -503,7 +503,7 @@ class SLFitnessPredictorManager(FitnessPredictorManager):
             p2 = self.selection()
             p1.crossover(p2)
             p1.mutate()
-            self.predictors_pop[i] = p1
+            self.predictors_pop[i] = deepcopy(p1)
 
     def selection(self):
         tournament = np.random.randint(self.predictors_pop_size, size=3, dtype=np.int32)
