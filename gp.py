@@ -8,6 +8,7 @@ import numpy as np
 from statistics import mean
 from copy import deepcopy
 import plotting as pl
+import traceback
 
 class Parameters:
     """
@@ -298,8 +299,10 @@ class GeneticProgram():
             test_cases = range(len(self.dataset))
         self.test_cases_evaluated += len(test_cases)
         try:
-            return mean([abs(individual.compute_tree(ds[:-1]) - ds[-1]) for ds in self.dataset[test_cases]]) + 0.01*individual.size()
+            return mean([abs(individual.compute_tree(ds[:-1]) - ds[-1]) for ds in self.dataset[test_cases]])
         except Exception as e:
+            print('exception during evaluation, shouldnt be here :(')
+            print(traceback.format_exc())
             return np.inf
 
     def selection(self):
@@ -366,6 +369,7 @@ class GeneticProgram():
         best_of_run_fitnesses = []
         avg_sizes = []
         test_cases_evaluations = []
+        best_of_run_exact = np.inf
 
         self.test_cases_evaluated = 0
 
@@ -373,7 +377,8 @@ class GeneticProgram():
         cur_gen = 0
         while not end_criteria_met:
             cur_gen += 1
-            if verbose and cur_gen % 100 == 0: print(f'current generation {cur_gen}')
+            if verbose and cur_gen % 100 == 0:
+                print('current generation {}, {:.2e}'.format(cur_gen, self.test_cases_evaluated))
             if fp_manager is not None:
                 test_cases = fp_manager.get_best_predictor().test_cases
                 fp_manager.next_generation(generation=cur_gen)
@@ -489,13 +494,10 @@ class SLFitnessPredictorManager(FitnessPredictorManager):
         return self.predictors_pop[np.argmin(self.pred_fitnesses)]
 
     def next_generation(self, **args):
-        if args['generation'] % 5 == 0:
+        if args['generation'] % 20 == 0:
             self.add_new_trainer()
-        if args['generation'] % 100 == 0:
-            pass
-            #print(self.trainers_exact_fitnesses)
-        self.evolve_predictors()
-        self.evaluate_predictors()
+            self.evolve_predictors()
+            self.evaluate_predictors()
 
     def evolve_predictors(self):
         for i in range(len(self.predictors_pop)):
