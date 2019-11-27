@@ -299,10 +299,11 @@ class GeneticProgram():
             test_cases = range(len(self.dataset))
         self.test_cases_evaluated += len(test_cases)
         try:
-            return mean([abs(individual.compute_tree(ds[:-1]) - ds[-1]) for ds in self.dataset[test_cases]])
+            return mean([abs(individual.compute_tree(ds[:-1]) - ds[-1]) for ds in self.dataset[test_cases]]) + 0.01*individual.size()
         except Exception as e:
             print('exception during evaluation, shouldnt be here :(')
             print(traceback.format_exc())
+            exit(0)
             return np.inf
 
     def selection(self):
@@ -373,6 +374,11 @@ class GeneticProgram():
 
         self.test_cases_evaluated = 0
 
+        last_pred = None
+        pred_changes = []
+        pred_changes_at_effort = []
+        used_predictors = []
+
         # start
         cur_gen = 0
         while not end_criteria_met:
@@ -384,6 +390,12 @@ class GeneticProgram():
                 fp_manager.next_generation(generation=cur_gen)
             else:
                 test_cases = None
+            if last_pred is None or sorted(test_cases) != sorted(last_pred):
+                pred_changes.append(cur_gen)
+                used_predictors.append(deepcopy(test_cases))
+                pred_changes_at_effort.append(self.test_cases_evaluated)
+                last_pred = deepcopy(used_predictors[-1])
+
             self.evolve_population()
             self.evaluate_population(test_cases=test_cases)
 
@@ -409,9 +421,11 @@ class GeneticProgram():
                 'best_of_run_fitnesses' : np.array(best_of_run_fitnesses),
                 'best_f' : best_of_run_f,
                 'avg_sizes' : np.array(avg_sizes),
-                'best_of_run_exact_fitness' : self.fitness(best_of_run),
+                'best_of_run_exact_fitness' : best_of_run_exact,
                 'test_cases_evaluations' : np.array(test_cases_evaluations),
-                'used_test_cases' : test_cases}
+                'pred_changes' : np.array(pred_changes),
+                'used_predictors' : np.array(used_predictors, dtype=np.int32),
+                'pred_changes_at_effort' : np.array(pred_changes_at_effort)}
 
 class FitnessPredictor():
 
@@ -494,7 +508,7 @@ class SLFitnessPredictorManager(FitnessPredictorManager):
         return self.predictors_pop[np.argmin(self.pred_fitnesses)]
 
     def next_generation(self, **args):
-        if args['generation'] % 20 == 0:
+        if args['generation'] % 10 == 0:
             self.add_new_trainer()
             self.evolve_predictors()
             self.evaluate_predictors()
@@ -513,7 +527,7 @@ class SLFitnessPredictorManager(FitnessPredictorManager):
         return deepcopy(self.predictors_pop[tournament[np.argmin(tournament_fitnesses)]])
 
     def trainer_fitness(self, t):
-        return np.std([self.owner.fitness(t, test_cases=p.test_cases) for p in self.predictors_pop])
+        return np.var([self.owner.fitness(t, test_cases=p.test_cases) for p in self.predictors_pop])
 
     def add_new_trainer(self):
         all_fitnesses = [self.trainer_fitness(t) for t in self.owner.population]
