@@ -314,6 +314,7 @@ class GeneticProgram():
             test_cases = range(len(self.dataset))
         self.test_cases_evaluated += len(test_cases)
         try:
+            # TODO: for some reason if test_cases are array it slows the program a lot
             return mean([abs(individual.compute_tree(ds[:-1]) - ds[-1]) for ds in self.dataset[test_cases]]) + 0.01*individual.size()
         except Exception as e:
             print('exception during evaluation, shouldnt be here :(')
@@ -395,6 +396,7 @@ class GeneticProgram():
         pred_changes = []
         pred_changes_at_effort = []
         used_predictors = []
+        best_solutions = []
 
         # start
         cur_gen = 0
@@ -407,11 +409,14 @@ class GeneticProgram():
                 fp_manager.next_generation(generation=cur_gen)
             else:
                 test_cases = None
+
+            used_predictors.append(deepcopy(test_cases))
+
             if last_pred is None or sorted(test_cases) != sorted(last_pred):
                 pred_changes.append(cur_gen)
-                used_predictors.append(deepcopy(test_cases))
                 pred_changes_at_effort.append(self.test_cases_evaluated)
                 last_pred = deepcopy(used_predictors[-1])
+
 
             self.evolve_population()
             self.evaluate_population(test_cases=test_cases)
@@ -420,7 +425,6 @@ class GeneticProgram():
             avg_fitnesses.append(mean(self.fitnesses))
             best_of_gen_fitnesses.append(self.fitness(self.population[best_of_gen]))
             avg_sizes.append(mean([t.size() for t in self.population]))
-            test_cases_evaluations.append(self.test_cases_evaluated)
 
             if self.fitnesses[best_of_gen] < best_of_run_f:
                 previous_exact = best_of_run_exact
@@ -431,9 +435,12 @@ class GeneticProgram():
                 if best_of_run_exact > previous_exact:
                     worse_solution.append(self.test_cases_evaluated)
 
+            test_cases_evaluations.append(self.test_cases_evaluated)
             best_of_run_fitnesses.append(best_of_run_exact)
+            best_solutions.append(best_of_run)
 
             end_criteria_met |= cur_gen > Parameters.gp_rules['generations'] or best_of_run_exact < 0.1 or self.test_cases_evaluated > Parameters.gp_rules['evaluations_limit']
+
         return {'best' : best_of_run,
                 'generations' : cur_gen + 1,
                 'avg_fitnesses' : np.array(avg_fitnesses),
@@ -444,9 +451,10 @@ class GeneticProgram():
                 'best_of_run_exact_fitness' : best_of_run_exact,
                 'test_cases_evaluations' : np.array(test_cases_evaluations),
                 'pred_changes' : np.array(pred_changes),
-                'used_predictors' : np.array(used_predictors, dtype=np.int32),
+                'used_predictors' : np.array(used_predictors, dtype=np.int32) if fp_manager is not None else None,
                 'pred_changes_at_effort' : np.array(pred_changes_at_effort),
-                'worse_solution' : np.array(worse_solution)}
+                'worse_solution' : np.array(worse_solution),
+                'best_solutions' : best_solutions}
 
 class FitnessPredictor():
 
@@ -529,8 +537,9 @@ class SLFitnessPredictorManager(FitnessPredictorManager):
         return self.predictors_pop[np.argmin(self.pred_fitnesses)]
 
     def next_generation(self, **args):
-        if args['generation'] % 10 == 0:
+        if args['generation'] % 20 == 0:
             self.add_new_trainer()
+        if args['generation'] % 10 == 0:
             self.evolve_predictors()
             self.evaluate_predictors()
 
