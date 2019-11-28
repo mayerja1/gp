@@ -371,6 +371,8 @@ class GeneticProgram():
         avg_sizes = []
         test_cases_evaluations = []
         best_of_run_exact = np.inf
+        # list of times when the exact fitness of best solution is worse then the previous best solution
+        worse_solution = []
 
         self.test_cases_evaluated = 0
 
@@ -406,10 +408,13 @@ class GeneticProgram():
             test_cases_evaluations.append(self.test_cases_evaluated)
 
             if self.fitnesses[best_of_gen] < best_of_run_f:
+                previous_exact = best_of_run_exact
                 best_of_run_f = self.fitnesses[best_of_gen]
                 best_of_run_exact = self.fitness(self.population[best_of_gen])
                 best_of_run_gen = cur_gen
                 best_of_run = deepcopy(self.population[best_of_gen])
+                if best_of_run_exact > previous_exact:
+                    worse_solution.append(self.test_cases_evaluated)
 
             best_of_run_fitnesses.append(best_of_run_exact)
 
@@ -425,7 +430,8 @@ class GeneticProgram():
                 'test_cases_evaluations' : np.array(test_cases_evaluations),
                 'pred_changes' : np.array(pred_changes),
                 'used_predictors' : np.array(used_predictors, dtype=np.int32),
-                'pred_changes_at_effort' : np.array(pred_changes_at_effort)}
+                'pred_changes_at_effort' : np.array(pred_changes_at_effort),
+                'worse_solution' : np.array(worse_solution)}
 
 class FitnessPredictor():
 
