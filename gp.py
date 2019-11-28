@@ -170,7 +170,22 @@ class GPTree:
 
         """
         if random() < Parameters.gp_rules['prob_mutation']:
-            self.random_tree(grow=True, max_depth=2)
+            #self.random_tree(grow=True, max_depth=2)
+            self.data = choice(Parameters.gp_rules['node_data'])
+            if self.data in Parameters.gp_rules['binary_functions'] and self.right is None:
+                self.right = GPTree()
+                self.right.random_tree(grow=True, max_depth=1)
+                if self.left is None:
+                    self.left = GPTree()
+                    self.left.random_tree(grow=True, max_depth=1)
+            elif self.data in Parameters.gp_rules['unary_functions']:
+                if self.left is None:
+                    self.left = GPTree()
+                    self.left.random_tree(grow=True, max_depth=1)
+                self.right = None
+            elif self.data in Parameters.gp_rules['terminals']:
+                self.right = self.left = None
+
         elif self.left: self.left.mutation()
         elif self.right: self.right.mutation()
 
