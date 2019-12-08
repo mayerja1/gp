@@ -594,5 +594,37 @@ class RandomFitnessPredictorManager(FitnessPredictorManager):
     def next_generation(self, **args):
         pass
 
+
+def perform_runs(runs, gen_prog, fitness_pred, file=None):
+    # x axis data
+    generations = []
+    cases_evaluated = []
+    times = []
+
+    # y axis data
+    fitnesses = []
+    avg_fitnesses = []
+
+    # other
+    best_solutions = []
+
+    for _ in range(runs):
+        results = gen_prog.run_evolution(fp_manager=fitness_pred)
+        generations.append(np.arange(results['generations']))
+        cases_evaluated.append(results['test_cases_evaluations'])
+        times.append(results['times'])
+        fitnesses.append(results['best_of_run_fitnesses'])
+        avg_fitnesses.append(results['avg_fitnesses'])
+        best_solutions.append(results['best_solutions'])
+
+
+    if file is not None:
+        np.savez(file, generations=generations, \
+                cases_evaluated=cases_evaluated, times=times, \
+                fitnesses=fitnesses, avg_fitnesses=avg_fitnesses, \
+                best_solutions=best_solutions)
+    else:
+        return generations, cases_evaluated, times, fitnesses, avg_fitnesses
+
 if __name__== "__main__":
     pass
