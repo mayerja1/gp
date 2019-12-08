@@ -314,7 +314,6 @@ class GeneticProgram():
             test_cases = range(len(self.dataset))
         self.test_cases_evaluated += len(test_cases)
         try:
-            # TODO: for some reason if test_cases are array it slows the program a lot
             return mean([abs(individual.compute_tree(ds[:-1]) - ds[-1]) for ds in self.dataset[test_cases]]) + 0.01*individual.size()
         except Exception as e:
             print('exception during evaluation, shouldnt be here :(')
