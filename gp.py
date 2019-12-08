@@ -9,6 +9,7 @@ from statistics import mean
 from copy import deepcopy
 import plotting as pl
 import traceback
+import time
 
 class Parameters:
     """
@@ -373,13 +374,22 @@ class GeneticProgram():
             stats and results of the run
 
         """
+        def terminate_condition():
+            return cur_gen > Parameters.gp_rules['generations'] \
+            or best_of_run_exact < 0.1 \
+            or self.test_cases_evaluated > Parameters.gp_rules['evaluations_limit'] \
+            or time.time() - start_time >= Parameters.gp_rules['time_limit']
+
         # init
         self.init_population()
         best_of_run = None
         best_of_run_f = np.inf
         best_of_run_gen = 0
         end_criteria_met = False
+        start_time = time.time()
+        self.test_cases_evaluated = 0
 
+        # statistics
         avg_fitnesses = []
         best_of_gen_fitnesses = []
         best_of_run_fitnesses = []
@@ -388,14 +398,12 @@ class GeneticProgram():
         best_of_run_exact = np.inf
         # list of times when the exact fitness of best solution is worse then the previous best solution
         worse_solution = []
-
-        self.test_cases_evaluated = 0
-
         last_pred = None
         pred_changes = []
         pred_changes_at_effort = []
         used_predictors = []
         best_solutions = []
+        times = []
 
         # start
         cur_gen = 0
@@ -403,6 +411,7 @@ class GeneticProgram():
             cur_gen += 1
             if verbose and cur_gen % 100 == 0:
                 print('current generation {}, {:.2e}'.format(cur_gen, self.test_cases_evaluated))
+
             if fp_manager is not None:
                 test_cases = fp_manager.get_best_predictor().test_cases
                 fp_manager.next_generation(generation=cur_gen)
@@ -411,15 +420,17 @@ class GeneticProgram():
 
             used_predictors.append(deepcopy(test_cases))
 
+            # if a different predictor was used
             if last_pred is None or sorted(test_cases) != sorted(last_pred):
                 pred_changes.append(cur_gen)
                 pred_changes_at_effort.append(self.test_cases_evaluated)
                 last_pred = deepcopy(used_predictors[-1])
 
-
+            # do evolution
             self.evolve_population()
             self.evaluate_population(test_cases=test_cases)
 
+            # update
             best_of_gen = np.argmin(self.fitnesses)
             avg_fitnesses.append(mean(self.fitnesses))
             best_of_gen_fitnesses.append(self.fitness(self.population[best_of_gen]))
@@ -437,8 +448,9 @@ class GeneticProgram():
             test_cases_evaluations.append(self.test_cases_evaluated)
             best_of_run_fitnesses.append(best_of_run_exact)
             best_solutions.append(best_of_run)
+            times.append(time.time() - start_time)
 
-            end_criteria_met |= cur_gen > Parameters.gp_rules['generations'] or best_of_run_exact < 0.1 or self.test_cases_evaluated > Parameters.gp_rules['evaluations_limit']
+            end_criteria_met |= terminate_condition()
 
         return {'best' : best_of_run,
                 'generations' : cur_gen + 1,
@@ -453,7 +465,9 @@ class GeneticProgram():
                 'used_predictors' : np.array(used_predictors, dtype=np.int32) if fp_manager is not None else None,
                 'pred_changes_at_effort' : np.array(pred_changes_at_effort),
                 'worse_solution' : np.array(worse_solution),
-                'best_solutions' : best_solutions}
+                'best_solutions' : best_solutions,
+                'times' : np.array(times)}
+
 
 class FitnessPredictor():
 
@@ -581,9 +595,4 @@ class RandomFitnessPredictorManager(FitnessPredictorManager):
         pass
 
 if __name__== "__main__":
-    fp = FitnessPredictor(10, 5, 0.1, 1.0)
-    fp2 = FitnessPredictor(10, 5, 0.1, 1.0)
-    print(fp)
-    print(fp2)
-    fp.crossover(fp2)
-    print(fp)
+    pass
