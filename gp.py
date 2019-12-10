@@ -610,7 +610,7 @@ def perform_runs(runs, gen_prog, fitness_pred, file=None):
 
     for _ in range(runs):
         results = gen_prog.run_evolution(fp_manager=fitness_pred)
-        generations.append(np.arange(results['generations']))
+        generations.append(np.arange(1, results['generations']))
         cases_evaluated.append(results['test_cases_evaluations'])
         times.append(results['times'])
         fitnesses.append(results['best_of_run_fitnesses'])
