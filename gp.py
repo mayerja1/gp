@@ -3,7 +3,7 @@ using code by © moshe sipper, www.moshesipper.com
 author: Jan Mayer
 """
 from random import random, randint, seed, choice
-from math import sin, cos, pi, exp, sqrt
+from math import sin, cos, pi, exp, sqrt, log
 import numpy as np
 from statistics import mean
 from copy import deepcopy
@@ -11,11 +11,50 @@ import plotting as pl
 import traceback
 import time
 
+def set_params(**kwargs):
+    # set default
+    def add(x, y): return x + y
+    def sub(x, y): return x - y
+    def mul(x, y): return x * y
+    def safe_div(x, y): return x / y if y != 0 else x
+    def safe_log(x): return log(max(1e-10, abs(x)))
+    def safe_exp(x): return exp(min(30, x))
+
+    BINARY_FUNCTIONS = (add, sub, mul, safe_div)
+    UNARY_FUNCTIONS = (abs, sin, cos, safe_exp, safe_log)
+    FUNC_NAMES = {add : '+', sub : '-', mul : '*', safe_div : '/', sin : 'sin', cos : 'cos', abs : 'abs', safe_exp : 'e^', safe_log : 'log'}
+    INPUTS = ('x',)
+    TERMINALS = (-1, 0, 1) + INPUTS
+
+    Parameters.gp_rules = {
+    'binary_functions' : BINARY_FUNCTIONS,
+    'unary_functions' :  UNARY_FUNCTIONS,
+    'func_names' :       FUNC_NAMES,
+    'terminals' :        TERMINALS,
+    'inputs' :           INPUTS,
+    'node_data' : BINARY_FUNCTIONS + UNARY_FUNCTIONS + TERMINALS,
+    'pop_size' :         128, # population size
+    'min_depth' :        2, # minimal initial random tree depth
+    'max_depth' :        4, # maximal initial random tree depth
+    'generations' :      1000, # maximal number of generations to run evolution
+    'tournament_size' :  3, # size of tournament for tournament selection
+    'xo_rate' :          0.5, # crossover rate
+    'prob_mutation' :    0.1, # per-node mutation probability
+    'epsilon' :          0.1, # epsilon used to compute hit rate
+    'evaluations_limit' : np.inf,
+    'time_limit' : np.inf
+    }
+
+    # set specified
+    for key, val in kwargs.items():
+        Parameters.gp_rules[key] = val
+
 class Parameters:
     """
     Purpose if this class is only to keep current gp parameters.
     """
     gp_rules = None
+
 
 class GPTree:
     """
@@ -615,7 +654,7 @@ def perform_runs(runs, gen_prog, fitness_pred, file=None):
         times.append(results['times'])
         fitnesses.append(results['best_of_run_fitnesses'])
         avg_fitnesses.append(results['avg_fitnesses'])
-        best_solutions.append(results['best_solutions'])
+        #best_solutions.append(results['best_solutions'])
 
 
     if file is not None:
