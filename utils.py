@@ -24,10 +24,13 @@ def prepare_data(x_axis, y_axis):
             a, b = binary_search(x, xx, 0, len(x) - 1)
             if a == b:
                 ys[i, j] = y[a]
-            elif b < len(x):
+            elif b < len(x) and a >= 0:
                 ys[i, j] = linear_interpolation(x[a], y[a], x[b], y[b], xx)
             elif b >= len(x):
                 ys[i, j] = y[-1]
             else:
                 ys[i, j] = y[0]
     return xs, ys
+
+if __name__ == '__main__':
+    print(binary_search([1,3,6,7,10,11], -10, 0, 5))
