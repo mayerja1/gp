@@ -359,7 +359,8 @@ class GeneticProgram():
             test_cases = range(len(self.dataset))
         self.test_cases_evaluated += len(test_cases)
         try:
-            return mean([abs(individual.compute_tree(ds[:-1]) - ds[-1]) for ds in self.dataset[test_cases]]) + 0.01*individual.size()
+            f = mean([abs(individual.compute_tree(ds[:-1]) - ds[-1]) for ds in self.dataset[test_cases]]) + 0.01*individual.size()
+            return f
         except Exception as e:
             print('exception during evaluation, shouldnt be here :(')
             print(traceback.format_exc())
@@ -596,7 +597,6 @@ class SLFitnessPredictorManager(FitnessPredictorManager):
     def next_generation(self, **args):
         if args['generation'] % 20 == 0:
             self.add_new_trainer()
-        if args['generation'] % 10 == 0:
             self.evolve_predictors()
             self.evaluate_predictors()
 
