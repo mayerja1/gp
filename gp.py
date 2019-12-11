@@ -11,7 +11,8 @@ import plotting as pl
 import traceback
 import time
 
-def set_params(**kwargs):
+
+def set_params(default=True, **kwargs):
     # set default
     def add(x, y): return x + y
     def sub(x, y): return x - y
@@ -26,24 +27,25 @@ def set_params(**kwargs):
     INPUTS = ('x',)
     TERMINALS = (-1, 0, 1) + INPUTS
 
-    Parameters.gp_rules = {
-    'binary_functions' : BINARY_FUNCTIONS,
-    'unary_functions' :  UNARY_FUNCTIONS,
-    'func_names' :       FUNC_NAMES,
-    'terminals' :        TERMINALS,
-    'inputs' :           INPUTS,
-    'node_data' : BINARY_FUNCTIONS + UNARY_FUNCTIONS + TERMINALS,
-    'pop_size' :         128, # population size
-    'min_depth' :        2, # minimal initial random tree depth
-    'max_depth' :        4, # maximal initial random tree depth
-    'generations' :      1000, # maximal number of generations to run evolution
-    'tournament_size' :  3, # size of tournament for tournament selection
-    'xo_rate' :          0.5, # crossover rate
-    'prob_mutation' :    0.1, # per-node mutation probability
-    'epsilon' :          0.1, # epsilon used to compute hit rate
-    'evaluations_limit' : np.inf,
-    'time_limit' : np.inf
-    }
+    if default:
+        Parameters.gp_rules = {
+        'binary_functions' : BINARY_FUNCTIONS,
+        'unary_functions' :  UNARY_FUNCTIONS,
+        'func_names' :       FUNC_NAMES,
+        'terminals' :        TERMINALS,
+        'inputs' :           INPUTS,
+        'node_data' : BINARY_FUNCTIONS + UNARY_FUNCTIONS + TERMINALS,
+        'pop_size' :         128, # population size
+        'min_depth' :        2, # minimal initial random tree depth
+        'max_depth' :        4, # maximal initial random tree depth
+        'generations' :      1000, # maximal number of generations to run evolution
+        'tournament_size' :  3, # size of tournament for tournament selection
+        'xo_rate' :          0.5, # crossover rate
+        'prob_mutation' :    0.1, # per-node mutation probability
+        'epsilon' :          0.1, # epsilon used to compute hit rate
+        'evaluations_limit' : np.inf,
+        'time_limit' : np.inf
+        }
 
     # set specified
     for key, val in kwargs.items():
@@ -53,7 +55,7 @@ class Parameters:
     """
     Purpose if this class is only to keep current gp parameters.
     """
-    gp_rules = None
+    gp_rules = {}
 
 
 class GPTree:
@@ -172,6 +174,9 @@ class GPTree:
         elif self.data in Parameters.gp_rules['inputs']:
             return inputs[Parameters.gp_rules['inputs'].index(self.data)]
         else: return self.data
+
+    def compute_at_points(self, dataset):
+        return np.array([self.compute_tree(ds[:-1]) for ds in dataset])
 
     def random_tree(self, grow, max_depth, depth=False):
         """Make the tree a new, random one.
@@ -635,35 +640,22 @@ class RandomFitnessPredictorManager(FitnessPredictorManager):
 
 
 def perform_runs(runs, gen_prog, fitness_pred, file=None):
-    # x axis data
-    generations = []
-    cases_evaluated = []
-    times = []
-
-    # y axis data
-    fitnesses = []
-    avg_fitnesses = []
-
-    # other
-    best_solutions = []
+    results = []
 
     for _ in range(runs):
-        results = gen_prog.run_evolution(fp_manager=fitness_pred)
-        generations.append(np.arange(1, results['generations']))
-        cases_evaluated.append(results['test_cases_evaluations'])
-        times.append(results['times'])
-        fitnesses.append(results['best_of_run_fitnesses'])
-        avg_fitnesses.append(results['avg_fitnesses'])
-        #best_solutions.append(results['best_solutions'])
+        result = gen_prog.run_evolution(fp_manager=fitness_pred)
+        bs = result['best_solutions']
+        result['best_solutions'] = []
+        result['best'] = None
+        for sol in bs:
+            result['best_solutions'].append(sol.compute_at_points(gen_prog.dataset))
+        results.append(result)
 
 
     if file is not None:
-        np.savez(file, generations=generations, \
-                cases_evaluated=cases_evaluated, times=times, \
-                fitnesses=fitnesses, avg_fitnesses=avg_fitnesses, \
-                best_solutions=best_solutions)
+        np.savez(file, results=np.array(results))
     else:
-        return generations, cases_evaluated, times, fitnesses, avg_fitnesses
+        return results
 
 if __name__== "__main__":
     pass
